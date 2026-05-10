@@ -3,8 +3,36 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>vite-app</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta
+      name="description"
+      content="Realtime voice-to-voice assistant POC built with Gemini Live API."
+    />
+    <!--
+      Fallback theme-color tags for first paint and for browsers that
+      respect prefers-color-scheme directly. These are overridden at runtime
+      by useThemeColorMeta when the user picks a manual theme.
+    -->
+    <meta
+      name="theme-color"
+      media="(prefers-color-scheme: light)"
+      content="#ffffff"
+    />
+    <meta
+      name="theme-color"
+      media="(prefers-color-scheme: dark)"
+      content="#0a0a0a"
+    />
+    <!-- iOS Safari standalone PWA status bar style. -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <title>Voice Assistant POC</title>
   </head>
   <body>
     <div id="root"></div>

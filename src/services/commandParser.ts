@@ -1,0 +1,35 @@
+export type Intent =
+  | { type: "stop" }
+  | { type: "cancel" }
+  | { type: "repeat" }
+  | { type: "help" }
+  | { type: "speakSlower" }
+  | { type: "speakFaster" }
+  | { type: "whatCanISay" }
+
+const PATTERNS: Array<[RegExp, Intent]> = [
+  // Multi-word phrases first so "stop talking" wins over "stop".
+  [/\b(stop\s+(?:talking|speaking)|be\s+quiet|silence)\b/, { type: "stop" }],
+  [/\b(cancel(?:\s+that)?|never\s*mind|forget\s+it)\b/, { type: "cancel" }],
+  [/\b(repeat\s+that|repeat\s+(?:the\s+)?last|say\s+(?:that|it)\s+again|repeat)\b/, { type: "repeat" }],
+  [/\b(speak\s+slower|slow\s+down|talk\s+slower)\b/, { type: "speakSlower" }],
+  [/\b(speak\s+faster|speed\s+up|talk\s+faster)\b/, { type: "speakFaster" }],
+  [/\b(what\s+can\s+i\s+say|list\s+commands?|show\s+commands?)\b/, { type: "whatCanISay" }],
+  [/\b(help)\b/, { type: "help" }],
+  [/\b(stop)\b/, { type: "stop" }],
+]
+
+/**
+ * Parse a single user utterance for a recognized local command. Matching is
+ * case-insensitive and ignores leading/trailing words, so "okay stop please"
+ * still parses as `stop`. Returns the first matching intent, or null.
+ */
+export function parse(input: string): Intent | null {
+  if (!input) return null
+  const text = input.toLowerCase().trim()
+  if (!text) return null
+  for (const [pattern, intent] of PATTERNS) {
+    if (pattern.test(text)) return intent
+  }
+  return null
+}

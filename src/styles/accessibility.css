@@ -1,0 +1,120 @@
+/*
+ * Accessibility baseline.
+ * Imported after index.css so its rules win where they overlap.
+ */
+
+:root {
+  color-scheme: light dark;
+}
+
+/*
+ * Block iOS Safari's elastic bounce / pull-to-refresh on the root scroll
+ * container so the talk area can receive vertical swipe gestures cleanly.
+ * `overscroll-behavior: none` is the cross-browser way to do this; `100svh`
+ * + `overflow: hidden` on the body keeps the layout pinned to the viewport.
+ */
+html,
+body {
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: auto;
+  /* Prevent rubber-band on the document itself. */
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  /* Paint safe-area regions (notch / home indicator) with the theme bg
+     so the iOS status bar matches the app instead of showing white. */
+  background-color: var(--background);
+}
+
+#root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+/*
+ * Inside the gesture zone, tell the browser we'll handle vertical motion.
+ * `touch-action: none` blocks all browser-level scrolling/zoom inside that
+ * region so swipes reach our handlers without being interpreted as scroll.
+ */
+.gesture-zone {
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  overscroll-behavior: contain;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  min-width: 48px;
+  min-height: 48px;
+}
+
+:focus-visible {
+  outline: 3px solid currentColor;
+  outline-offset: 4px;
+}
+
+/*
+ * The talk area fills most of the viewport and uses the visualizer disc as
+ * its visible state. Suppress the focus outline there so the button doesn't
+ * appear "boxed" — the disc colour + listening pulse already carry state.
+ * Focus is still reachable for keyboard / screen-reader users.
+ */
+.talk-area:focus,
+.talk-area:focus-visible {
+  outline: none;
+}
+
+.sr-only,
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Listening pulse: a soft expanding ring around the mic icon. */
+@keyframes voice-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  80% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+.voice-pulse {
+  animation: voice-pulse 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
