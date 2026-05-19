@@ -541,14 +541,16 @@ export function useVoiceAssistant(opts: {
           // Each new transcript fragment resets a short timer; if no more
           // fragments arrive within the window the user has likely stopped,
           // so we move to "processing" right away rather than waiting for
-          // the model's first audio chunk to land.
+          // the model's first audio chunk to land. Kept short (100 ms) so the
+          // UI tracks the server VAD closely — users perceive long
+          // "listening" dwell as the app being slow.
           clearProcessingTimer()
           processingTimerRef.current = window.setTimeout(() => {
             processingTimerRef.current = null
             if (statusRef.current === "listening") {
               setStatusSafe("processing")
             }
-          }, 250)
+          }, 100)
         },
         onAssistantTranscript: (text, isFinal) => {
           if (isFinal) return

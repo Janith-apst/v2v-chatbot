@@ -87,7 +87,9 @@ export class GeminiLiveClient {
             endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_HIGH,
             // ms of silence before end-of-speech is committed. Lower = snappier
             // but more chance of cutting off mid-sentence on a thoughtful pause.
-            silenceDurationMs: 200,
+            // 80 ms is aggressive but works well for short voice-assistant
+            // utterances; raise if users feel they get cut off mid-sentence.
+            silenceDurationMs: 100,
             // ms of detected speech needed before start-of-speech fires.
             prefixPaddingMs: 50,
           },
