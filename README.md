@@ -4,7 +4,7 @@ A frontend-only React + Vite PWA.
 
 ## No backend
 
-There is **no backend**. All Gemini API calls are made directly from the browser, which means the API key is **bundled into the client JavaScript** and visible to anyone who loads the page.
+There is **no backend**. All Gemini API calls are made directly from the browser, which means the API key is **bundled into the client JavaScript** and visible to anyone who loads the page. **we should not deploy this publicly.** Run it on `localhost` with a restricted, low-quota dev key only. A token-vending service must replace this approach before any public demo.
 
 ## Setup
 
