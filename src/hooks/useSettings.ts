@@ -7,6 +7,7 @@ export type Settings = {
   speechSpeed: SpeechSpeed
   verbosity: Verbosity
   vibration: boolean
+  soundEffects: boolean
   autoSpeak: boolean
 }
 
@@ -16,6 +17,7 @@ const DEFAULT_SETTINGS: Settings = {
   speechSpeed: "normal",
   verbosity: "short",
   vibration: true,
+  soundEffects: true,
   autoSpeak: true,
 }
 

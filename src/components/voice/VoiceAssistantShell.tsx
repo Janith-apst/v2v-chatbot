@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react"
 import { useAccessibilityAnnouncements } from "@/hooks/useAccessibilityAnnouncements"
 import { useHaptics } from "@/hooks/useHaptics"
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts"
+import { useSoundEffects } from "@/hooks/useSoundEffects"
 import { useThemeColorMeta } from "@/hooks/useThemeColorMeta"
 import { useTouchGestures } from "@/hooks/useTouchGestures"
 import { useVoiceAssistant } from "@/hooks/useVoiceAssistant"
@@ -23,6 +24,7 @@ export function VoiceAssistantShell() {
   const assistant = useVoiceAssistant({ apiKey, model })
   const { announcePolite } = useAccessibilityAnnouncements()
   const haptics = useHaptics()
+  const sfx = useSoundEffects()
   const talkRef = useRef<HTMLButtonElement>(null)
   const gestureZoneRef = useRef<HTMLDivElement>(null)
   useThemeColorMeta()
@@ -38,10 +40,12 @@ export function VoiceAssistantShell() {
     assistant.status === "connecting"
 
   const handlePrimary = () => {
-    // Fire haptic synchronously inside the user gesture so iOS Safari and
-    // Android Chrome both honour it (some browsers reject vibrate() outside
-    // a user-activation context).
-    haptics.vibrate(isActive ? "listeningStop" : "listeningStart")
+    // Fire haptic + sound synchronously inside the user gesture so iOS
+    // Safari and Android Chrome both honour them (some browsers reject
+    // vibrate() / AudioContext outside a user-activation context).
+    const event = isActive ? "listeningStop" : "listeningStart"
+    haptics.vibrate(event)
+    sfx.play(event)
     if (isActive) void assistant.endSession()
     else void assistant.start()
   }
@@ -50,17 +54,20 @@ export function VoiceAssistantShell() {
     Escape: () => {
       if (assistant.status === "speaking") {
         haptics.vibrate("listeningStop")
+        sfx.play("listeningStop")
         assistant.stopSpeaking()
         return
       }
       if (isActive) {
         haptics.vibrate("listeningStop")
+        sfx.play("listeningStop")
         void assistant.endSession()
       }
     },
     r: () => {
       if (assistant.hasLastResponse) {
         haptics.vibrate("ready")
+        sfx.play("ready")
         assistant.repeatLastResponse()
       } else announcePolite("No response to repeat yet.")
     },
@@ -75,6 +82,7 @@ export function VoiceAssistantShell() {
     onSwipeDown: () => {
       if (assistant.status === "speaking") {
         haptics.vibrate("listeningStop")
+        sfx.play("listeningStop")
         assistant.stopSpeaking()
         announcePolite("Speech stopped.")
       }
@@ -82,6 +90,7 @@ export function VoiceAssistantShell() {
     onSwipeUp: () => {
       if (assistant.hasLastResponse) {
         haptics.vibrate("ready")
+        sfx.play("ready")
         assistant.repeatLastResponse()
       } else {
         announcePolite("No response to repeat yet.")
@@ -89,6 +98,7 @@ export function VoiceAssistantShell() {
     },
     onTwoFingerTap: () => {
       haptics.vibrate("ready")
+      sfx.play("ready")
       assistant.openHelp()
     },
   })

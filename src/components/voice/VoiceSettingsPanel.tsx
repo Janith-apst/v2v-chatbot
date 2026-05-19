@@ -13,6 +13,7 @@ import {
   type SpeechSpeed,
   type Verbosity,
 } from "@/hooks/useSettings"
+import { useSoundEffects } from "@/hooks/useSoundEffects"
 
 type Props = {
   open: boolean
@@ -23,6 +24,7 @@ export function VoiceSettingsPanel({ open, onClose }: Props) {
   const { settings, setSetting, resetSettings } = useSettings()
   const { theme, setTheme } = useTheme()
   const haptics = useHaptics()
+  const sfx = useSoundEffects()
 
   return (
     <Drawer
@@ -110,6 +112,17 @@ export function VoiceSettingsPanel({ open, onClose }: Props) {
               checked={settings.vibration}
               disabled={!haptics.supported}
               onChange={(checked) => setSetting("vibration", checked)}
+            />
+            <ToggleRow
+              label="Sound effects"
+              description={
+                sfx.supported
+                  ? "Play short tones for state changes."
+                  : "Sound effects are not available on this device."
+              }
+              checked={settings.soundEffects}
+              disabled={!sfx.supported}
+              onChange={(checked) => setSetting("soundEffects", checked)}
             />
             <ToggleRow
               label="Auto-speak responses"

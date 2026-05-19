@@ -16,6 +16,7 @@ import type {
 import { useAccessibilityAnnouncements } from "./useAccessibilityAnnouncements"
 import { useGeolocation } from "./useGeolocation"
 import { useHaptics } from "./useHaptics"
+import { useSoundEffects } from "./useSoundEffects"
 import { useSettings, type SpeechSpeed } from "./useSettings"
 
 const DEBUG_RING_SIZE = 200
@@ -81,6 +82,7 @@ export function useVoiceAssistant(opts: {
   const { apiKey, model } = opts
   const { announcePolite, announceAssertive } = useAccessibilityAnnouncements()
   const { vibrate } = useHaptics()
+  const { play: playSfx } = useSoundEffects()
   const { settings } = useSettings()
   const geolocation = useGeolocation()
 
@@ -193,11 +195,12 @@ export function useVoiceAssistant(opts: {
     pushDebug("session:end")
     setStatusSafe("stopping")
     vibrate("listeningStop")
+    playSfx("listeningStop")
     await teardown()
     setMicMuted(false)
     setHasLastResponse(false)
     setStatusSafe("closed")
-  }, [pushDebug, setStatusSafe, teardown, vibrate])
+  }, [playSfx, pushDebug, setStatusSafe, teardown, vibrate])
 
   const stopSpeaking = useCallback(() => {
     const player = playerRef.current
@@ -430,6 +433,7 @@ export function useVoiceAssistant(opts: {
           pushDebug("client:open")
           setStatusSafe("listening")
           vibrate("listeningStart")
+          playSfx("listeningStart")
         },
         onClose: (reason) => {
           pushDebug("client:close", reason)
@@ -444,6 +448,7 @@ export function useVoiceAssistant(opts: {
           announceAssertive(friendly)
           setStatusSafe("error")
           vibrate("error")
+          playSfx("error")
           void teardown()
         },
         onAudioChunk: (chunk) => {
@@ -508,6 +513,7 @@ export function useVoiceAssistant(opts: {
           }
           if (hadAudioGenerationRef.current) {
             vibrate("success")
+            playSfx("success")
             hadAudioGenerationRef.current = false
           }
         },
@@ -549,6 +555,9 @@ export function useVoiceAssistant(opts: {
             processingTimerRef.current = null
             if (statusRef.current === "listening") {
               setStatusSafe("processing")
+              // Falling chirp marks the moment the user stopped talking —
+              // the specific UX cue requested for non-haptic devices.
+              playSfx("listeningStop")
             }
           }, 100)
         },
@@ -584,6 +593,7 @@ export function useVoiceAssistant(opts: {
       announceAssertive(friendly)
       setStatusSafe(denied ? "permission-required" : "error")
       vibrate("error")
+      playSfx("error")
       await teardown()
       return
     }
@@ -634,6 +644,7 @@ export function useVoiceAssistant(opts: {
       announceAssertive(friendly)
       setStatusSafe("error")
       vibrate("error")
+      playSfx("error")
       await teardown()
     }
   }, [
@@ -646,6 +657,7 @@ export function useVoiceAssistant(opts: {
     support,
     announceAssertive,
     vibrate,
+    playSfx,
     handleVoiceCommand,
     clearProcessingTimer,
     geolocation,
