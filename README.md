@@ -1,12 +1,10 @@
 # Voice Assistant POC
 
-A frontend-only React + Vite PWA that holds a realtime voice conversation with Gemini via the Live API, and answers questions about the Melbourne Open House "Access Map" venue dataset.
+A frontend-only React + Vite PWA.
 
-## No backend — read this first
+## No backend
 
 There is **no backend**. All Gemini API calls are made directly from the browser, which means the API key is **bundled into the client JavaScript** and visible to anyone who loads the page.
-
-**Do not deploy this publicly.** Run it on `localhost` with a restricted, low-quota dev key only. A token-vending service must replace this approach before any public demo.
 
 ## Setup
 
@@ -66,13 +64,6 @@ pnpm format
 | Swipe down | Stop assistant speech |
 | Swipe up | Repeat the last response |
 | Two-finger tap | Open help |
-| Space / Enter | Activate focused button |
-| Escape | Stop speech, then end session |
-| R | Repeat last response |
-| ? | Open help |
-| D | Toggle light / dark theme |
-
-Voice commands: "stop", "cancel", "repeat", "help", "what's nearest to me".
 
 ## Stack
 
