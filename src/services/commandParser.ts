@@ -6,6 +6,7 @@ export type Intent =
   | { type: "speakSlower" }
   | { type: "speakFaster" }
   | { type: "whatCanISay" }
+  | { type: "nearMe" }
 
 const PATTERNS: Array<[RegExp, Intent]> = [
   // Multi-word phrases first so "stop talking" wins over "stop".
@@ -15,6 +16,9 @@ const PATTERNS: Array<[RegExp, Intent]> = [
   [/\b(speak\s+slower|slow\s+down|talk\s+slower)\b/, { type: "speakSlower" }],
   [/\b(speak\s+faster|speed\s+up|talk\s+faster)\b/, { type: "speakFaster" }],
   [/\b(what\s+can\s+i\s+say|list\s+commands?|show\s+commands?)\b/, { type: "whatCanISay" }],
+  // "Nearest/closest/near me/around here" — covers the common phrasings for
+  // proximity queries on the venue dataset.
+  [/\b(near(?:est)?\s+(?:me|here|by|to\s+me)|closest(?:\s+to\s+me)?|around\s+(?:me|here))\b/, { type: "nearMe" }],
   [/\b(help)\b/, { type: "help" }],
   [/\b(stop)\b/, { type: "stop" }],
 ]

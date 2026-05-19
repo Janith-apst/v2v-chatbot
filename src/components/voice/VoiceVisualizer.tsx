@@ -16,6 +16,7 @@ const LISTEN_STATES: AssistantState[] = [
   "processing",
   "requesting-mic",
   "connecting",
+  "requesting-location",
 ]
 
 const ACTIVE_STATES: AssistantState[] = [

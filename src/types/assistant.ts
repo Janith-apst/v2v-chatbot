@@ -8,6 +8,7 @@ export type AssistantState =
   | "processing"
   | "speaking"
   | "stopping"
+  | "requesting-location"
   | "error"
   | "unsupported"
   | "closed"

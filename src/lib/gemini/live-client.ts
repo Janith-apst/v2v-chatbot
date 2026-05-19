@@ -8,7 +8,11 @@ import {
 } from "@google/genai"
 
 import { base64Decode, base64Encode } from "@/lib/audio/pcm16"
-import { DEFAULT_MODEL, SYSTEM_INSTRUCTION } from "./gemini-config"
+import {
+  buildSystemInstruction,
+  DEFAULT_MODEL,
+  type InitialLocation,
+} from "./gemini-config"
 
 export type GeminiLiveEvents = {
   onOpen?: () => void
@@ -41,8 +45,13 @@ export class GeminiLiveClient {
     this.events = opts.events
   }
 
-  async connect(): Promise<void> {
+  async connect(initialLocation: InitialLocation = null): Promise<void> {
     const ai = new GoogleGenAI({ apiKey: this.apiKey })
+    const systemInstruction = buildSystemInstruction(initialLocation)
+    this.events.onDebug?.("prompt:built", {
+      hasLocation: initialLocation?.ok === true,
+      chars: systemInstruction.length,
+    })
 
     this.session = await ai.live.connect({
       model: this.model,
@@ -67,7 +76,7 @@ export class GeminiLiveClient {
       },
       config: {
         responseModalities: [Modality.AUDIO],
-        systemInstruction: SYSTEM_INSTRUCTION,
+        systemInstruction,
         inputAudioTranscription: {},
         outputAudioTranscription: {},
         // Tighter VAD so the model commits end-of-speech quickly after a
@@ -93,6 +102,19 @@ export class GeminiLiveClient {
     this.session.sendRealtimeInput({
       audio: { data: base64, mimeType: "audio/pcm;rate=16000" },
     })
+  }
+
+  // Inject a side-channel text turn (e.g. resolved geolocation + ranked
+  // candidates) so the model can answer "nearest me" questions without needing
+  // a tool-use surface. turnComplete:false appends the context without
+  // forcing an immediate response — the user's own audio drives that.
+  sendContextTurn(text: string): void {
+    if (!this.session || this.closed) return
+    this.session.sendClientContent({
+      turns: [{ role: "user", parts: [{ text }] }],
+      turnComplete: false,
+    })
+    this.events.onDebug?.("ctx:inject", { chars: text.length })
   }
 
   close(): void {

@@ -12,6 +12,7 @@ const ACTIVE_STATES: AssistantState[] = [
   "processing",
   "speaking",
   "stopping",
+  "requesting-location",
 ]
 
 const LABEL: Record<AssistantState, string> = {
@@ -24,6 +25,7 @@ const LABEL: Record<AssistantState, string> = {
   processing: "Thinking",
   speaking: "Speaking",
   stopping: "Stopping",
+  "requesting-location": "Checking your location",
   error: "Tap to try again",
   unsupported: "Voice unavailable",
   closed: "Tap to talk",

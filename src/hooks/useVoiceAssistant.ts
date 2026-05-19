@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
+import { VENUES } from "@/data/maptivate"
 import { AudioPlayer } from "@/lib/audio/audio-player"
 import { MicRecorder } from "@/lib/audio/mic-recorder"
 import { detectAudioSupport } from "@/lib/audio/support"
+import { approximateLga, nearestVenues } from "@/lib/geo"
 import { GeminiLiveClient } from "@/lib/gemini/live-client"
 import { parse as parseCommand, type Intent } from "@/services/commandParser"
 import type {
@@ -12,6 +14,7 @@ import type {
 } from "@/types/assistant"
 
 import { useAccessibilityAnnouncements } from "./useAccessibilityAnnouncements"
+import { useGeolocation } from "./useGeolocation"
 import { useHaptics } from "./useHaptics"
 import { useSettings, type SpeechSpeed } from "./useSettings"
 
@@ -33,6 +36,7 @@ const STATE_ANNOUNCEMENTS: Partial<Record<AssistantState, string>> = {
   processing: "Checking that.",
   speaking: "Speaking response. You can interrupt at any time.",
   stopping: "Stopping.",
+  "requesting-location": "Checking your location.",
   closed: "Conversation ended.",
 }
 
@@ -78,6 +82,7 @@ export function useVoiceAssistant(opts: {
   const { announcePolite, announceAssertive } = useAccessibilityAnnouncements()
   const { vibrate } = useHaptics()
   const { settings } = useSettings()
+  const geolocation = useGeolocation()
 
   const [status, setStatus] = useState<AssistantState>("idle")
   const [error, setError] = useState<string | null>(null)
@@ -102,6 +107,23 @@ export function useVoiceAssistant(opts: {
   const userDraftRef = useRef("")
   const assistantDraftRef = useRef("")
   const turnHadAudioRef = useRef(false)
+  // Continuously updated from navigator.geolocation.watchPosition while the
+  // session is active. We inject the freshest value into every user turn so
+  // the model always has the user's coords in context — no waiting on a
+  // permission prompt mid-conversation, and the position stays fresh as the
+  // user walks. null = no fix yet for this session.
+  const userLocationRef = useRef<
+    | { ok: true; lat: number; lng: number; accuracyM: number }
+    | { ok: false; error: string }
+    | null
+  >(null)
+  const stopWatchRef = useRef<(() => void) | null>(null)
+  // Ensures the location-context turn is injected exactly once per user
+  // turn — on the first transcript fragment we see, so the model has fresh
+  // coords in context BEFORE it starts generating its reply.
+  const locationInjectedThisTurnRef = useRef(false)
+  // Same idea for the "nearest me" pre-ranked top-5 list.
+  const nearMeInjectedThisTurnRef = useRef(false)
   const hadAudioGenerationRef = useRef(false)
   // Timer used to flip to "processing" shortly after the user transcript
   // stream goes quiet — gives the UI immediate movement instead of dwelling
@@ -137,6 +159,11 @@ export function useVoiceAssistant(opts: {
 
   const teardown = useCallback(async () => {
     clearProcessingTimer()
+    userLocationRef.current = null
+    if (stopWatchRef.current) {
+      stopWatchRef.current()
+      stopWatchRef.current = null
+    }
     if (clientRef.current) {
       clientRef.current.close()
       clientRef.current = null
@@ -232,6 +259,61 @@ export function useVoiceAssistant(opts: {
     playerRef.current?.setPlaybackRate(SPEED_RATE[settings.speechSpeed])
   }, [settings.speechSpeed])
 
+  // Inject a small "[Client context] You are at lat, lng (approximate area:
+  // ...)" turn at the start of every user turn. Cheap, runs locally, gives
+  // the model the location it would otherwise refuse to use.
+  const injectLocationContext = useCallback(() => {
+    const client = clientRef.current
+    if (!client) return
+    const loc = userLocationRef.current
+    let body: string
+    if (loc?.ok) {
+      const lga = approximateLga({ lat: loc.lat, lng: loc.lng }, VENUES)
+      const accNote =
+        loc.accuracyM > 5000
+          ? ` (fix is approximate; accuracy radius ${Math.round(loc.accuracyM / 1000)} km)`
+          : ""
+      body = `[Client context] The user's current location is latitude ${loc.lat.toFixed(
+        5
+      )}, longitude ${loc.lng.toFixed(5)}${accNote}. Approximate area based on dataset: ${
+        lga ?? "unknown"
+      }. Treat this as the user's "current location" / "near me" reference for this turn. You DO have this location.`
+    } else if (loc && !loc.ok) {
+      body = `[Client context] The user's location is unavailable for this session (reason: ${loc.error}). If they ask about "nearest" or "near me", ask which suburb they're near.`
+    } else {
+      // No fix yet — the watchPosition subscription hasn't called back.
+      body = `[Client context] The user's location is not yet available (still resolving). If they ask about "nearest" or "near me" this turn, briefly ask them to wait a moment or to name a suburb.`
+    }
+    client.sendContextTurn(body)
+  }, [])
+
+  // Called when the user's utterance matches the "nearest me" intent. The
+  // basic coords have already been injected via injectLocationContext on the
+  // first transcript fragment of this turn; here we add the pre-ranked
+  // top-5 list so the model can answer with named venues + distances.
+  const handleNearMe = useCallback(() => {
+    const client = clientRef.current
+    const loc = userLocationRef.current
+    if (!client || !loc?.ok) return
+    const top = nearestVenues({ lat: loc.lat, lng: loc.lng }, VENUES, 5)
+    const lines = top.map((v, i) => {
+      const km = v.distanceKm.toFixed(1)
+      const access = v.access.length
+        ? v.access.slice(0, 3).join("; ")
+        : "no listed access features"
+      const note = v.accessibilityNotes
+        ? ` Notes: ${v.accessibilityNotes}`
+        : ""
+      return `${i + 1}. ${v.title} (${v.lga}) — ${km} km away. Access: ${access}.${note}`
+    })
+    pushDebug("geo:nearest-injected", { count: top.length })
+    client.sendContextTurn(
+      `[Client context] Pre-ranked nearest venues for the user's current location:\n${lines.join(
+        "\n"
+      )}\nUse this list to answer. Lead with the closest one or two by name and a short accessibility highlight; offer more on request.`
+    )
+  }, [pushDebug])
+
   const handleVoiceCommand = useCallback(
     (intent: Intent) => {
       pushDebug("voice-command", intent.type)
@@ -255,9 +337,12 @@ export function useVoiceAssistant(opts: {
             "Open settings to change speech speed. Press the settings button or say 'help'."
           )
           break
+        case "nearMe":
+          void handleNearMe()
+          break
       }
     },
-    [announcePolite, pushDebug, repeatLastResponse, stopSpeaking]
+    [announcePolite, handleNearMe, pushDebug, repeatLastResponse, stopSpeaking]
   )
 
   const start = useCallback(async () => {
@@ -290,8 +375,37 @@ export function useVoiceAssistant(opts: {
     userDraftRef.current = ""
     assistantDraftRef.current = ""
     hadAudioGenerationRef.current = false
+    userLocationRef.current = null
     setStatusSafe("requesting-mic")
     pushDebug("session:start")
+
+    // Subscribe to continuous geolocation updates for the session. The first
+    // callback typically arrives in a few seconds. We don't block on it —
+    // every user turn will pick up whatever the latest cached fix is. As the
+    // user walks, the ref stays fresh so the model always has current coords.
+    pushDebug("geo:watch:start")
+    stopWatchRef.current = geolocation.watch((result) => {
+      const prev = userLocationRef.current
+      userLocationRef.current = result
+      if (result.ok) {
+        // Only log the first fix and meaningful updates to keep the debug
+        // ring useful (watchPosition can fire frequently).
+        const movedFar =
+          !prev ||
+          !prev.ok ||
+          Math.abs(prev.lat - result.lat) > 0.0001 ||
+          Math.abs(prev.lng - result.lng) > 0.0001
+        if (movedFar) {
+          pushDebug("geo:update", {
+            lat: result.lat,
+            lng: result.lng,
+            accuracyM: Math.round(result.accuracyM),
+          })
+        }
+      } else {
+        pushDebug("geo:failed", result.error)
+      }
+    })
 
     const player = new AudioPlayer()
     player.setPlaybackRate(SPEED_RATE[settings.speechSpeed])
@@ -357,6 +471,9 @@ export function useVoiceAssistant(opts: {
         onTurnComplete: () => {
           pushDebug("client:turn-complete")
           clearProcessingTimer()
+          // Allow the next user turn to inject a fresh location context.
+          locationInjectedThisTurnRef.current = false
+          nearMeInjectedThisTurnRef.current = false
           if (turnHadAudioRef.current) {
             playerRef.current?.endTurn()
             turnHadAudioRef.current = false
@@ -396,8 +513,31 @@ export function useVoiceAssistant(opts: {
         },
         onUserTranscript: (text, isFinal) => {
           if (isFinal) return
+          // First transcript fragment of this turn → inject location context
+          // BEFORE the model finishes thinking. sendClientContent is ordered,
+          // so this lands in the conversation ahead of the assistant's reply.
+          if (!locationInjectedThisTurnRef.current) {
+            locationInjectedThisTurnRef.current = true
+            injectLocationContext()
+          }
           userDraftRef.current += text
           setUserDraft(userDraftRef.current)
+          // If we can already see a "nearest me" phrase in the running
+          // draft, also inject the pre-ranked list while the model is still
+          // hearing the user. Idempotency is handled by the locationInjected
+          // flag above — handleNearMe itself can be called more than once
+          // safely as long as we don't spam every fragment; we gate on a
+          // dedicated flag stored on the ref's identity.
+          const draftLower = userDraftRef.current.toLowerCase()
+          if (
+            !nearMeInjectedThisTurnRef.current &&
+            /\b(near(?:est)?\s+(?:me|here|by|to\s+me)|closest(?:\s+to\s+me)?|around\s+(?:me|here))\b/.test(
+              draftLower
+            )
+          ) {
+            nearMeInjectedThisTurnRef.current = true
+            handleNearMe()
+          }
           // Each new transcript fragment resets a short timer; if no more
           // fragments arrive within the window the user has likely stopped,
           // so we move to "processing" right away rather than waiting for
@@ -447,8 +587,42 @@ export function useVoiceAssistant(opts: {
     }
 
     setStatusSafe("connecting")
+
+    // Pre-flight: try to get one synchronous location fix before we open the
+    // Live session, so the systemInstruction we send to Gemini already
+    // contains the user's coords. We race against a short timeout — if the
+    // browser hasn't answered in 4s, we connect without coords; the watcher
+    // (started above in start) will populate userLocationRef later and the
+    // per-turn [Client context] injection will fill in the gap.
+    const preflight = await Promise.race<
+      typeof userLocationRef.current | "timeout"
+    >([
+      // If the watcher already produced a fix while mic was warming up, use it.
+      userLocationRef.current
+        ? Promise.resolve(userLocationRef.current)
+        : geolocation.request(),
+      new Promise((resolve) => setTimeout(() => resolve("timeout"), 4000)),
+    ])
+    const initialLocation =
+      preflight && preflight !== "timeout" ? preflight : null
+    if (initialLocation) {
+      userLocationRef.current = initialLocation
+      pushDebug(
+        initialLocation.ok ? "geo:preflight:ok" : "geo:preflight:failed",
+        initialLocation.ok
+          ? {
+              lat: initialLocation.lat,
+              lng: initialLocation.lng,
+              accuracyM: Math.round(initialLocation.accuracyM),
+            }
+          : initialLocation.error
+      )
+    } else {
+      pushDebug("geo:preflight:timeout")
+    }
+
     try {
-      await client.connect()
+      await client.connect(initialLocation)
     } catch (e) {
       const raw = e instanceof Error ? e.message : String(e)
       pushDebug("connect:error", raw)
@@ -472,6 +646,7 @@ export function useVoiceAssistant(opts: {
     vibrate,
     handleVoiceCommand,
     clearProcessingTimer,
+    geolocation,
   ])
 
   const toggleMute = useCallback(() => {
