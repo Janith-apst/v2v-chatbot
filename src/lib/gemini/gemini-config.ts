@@ -8,9 +8,6 @@ export type InitialLocation =
   | { ok: false; error: string }
   | null
 
-// Compact model-facing view of each venue. Trimmed down further than the full
-// generated record so the prompt stays small and the model focuses on the
-// fields it actually needs to answer questions.
 type VenueForPrompt = {
   id: string
   title: string

@@ -29,11 +29,6 @@ export function nearestVenues(
     .slice(0, n)
 }
 
-/**
- * Approximate the user's "area" by picking the LGA whose venue centroid is
- * closest. Cheap stand-in for a real reverse-geocode — good enough to let
- * the model say "you're roughly in the Yarra area" without a network call.
- */
 export function approximateLga(origin: LatLng, venues: Venue[]): string | null {
   if (venues.length === 0) return null
   const byLga = new Map<string, { lat: number; lng: number; n: number }>()

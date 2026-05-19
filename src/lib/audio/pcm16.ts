@@ -37,8 +37,6 @@ export function base64Decode(b64: string): ArrayBuffer {
   return bytes.buffer
 }
 
-// Naive index-based decimation. Adequate for whole-ratio downsamples like
-// 48000 -> 16000 (3:1) and good enough for Phase 1 voice.
 export function downsampleFloat32(
   input: Float32Array,
   fromRate: number,
@@ -52,7 +50,6 @@ export function downsampleFloat32(
   const outLen = Math.floor(input.length / ratio)
   const out = new Float32Array(outLen)
   for (let i = 0; i < outLen; i++) {
-    // Average the source window for a touch of anti-aliasing.
     const start = Math.floor(i * ratio)
     const end = Math.min(input.length, Math.floor((i + 1) * ratio))
     let sum = 0

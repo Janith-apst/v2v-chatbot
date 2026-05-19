@@ -79,18 +79,12 @@ export class GeminiLiveClient {
         systemInstruction,
         inputAudioTranscription: {},
         outputAudioTranscription: {},
-        // Tighter VAD so the model commits end-of-speech quickly after a
-        // short pause (default LOW sensitivity waits noticeably longer).
+
         realtimeInputConfig: {
           automaticActivityDetection: {
             startOfSpeechSensitivity: StartSensitivity.START_SENSITIVITY_HIGH,
             endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_HIGH,
-            // ms of silence before end-of-speech is committed. Lower = snappier
-            // but more chance of cutting off mid-sentence on a thoughtful pause.
-            // 80 ms is aggressive but works well for short voice-assistant
-            // utterances; raise if users feel they get cut off mid-sentence.
             silenceDurationMs: 100,
-            // ms of detected speech needed before start-of-speech fires.
             prefixPaddingMs: 50,
           },
         },
@@ -106,10 +100,7 @@ export class GeminiLiveClient {
     })
   }
 
-  // Inject a side-channel text turn (e.g. resolved geolocation + ranked
-  // candidates) so the model can answer "nearest me" questions without needing
-  // a tool-use surface. turnComplete:false appends the context without
-  // forcing an immediate response — the user's own audio drives that.
+  // model can answer "nearest me" questions without needing
   sendContextTurn(text: string): void {
     if (!this.session || this.closed) return
     this.session.sendClientContent({

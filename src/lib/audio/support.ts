@@ -3,7 +3,6 @@ export type AudioSupport = {
   audioContext: boolean
   audioWorklet: boolean
   getUserMedia: boolean
-  // Human-readable reason when ok is false. Suitable for direct user display.
   reason?: string
 }
 

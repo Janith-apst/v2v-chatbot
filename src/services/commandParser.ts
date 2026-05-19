@@ -23,11 +23,6 @@ const PATTERNS: Array<[RegExp, Intent]> = [
   [/\b(stop)\b/, { type: "stop" }],
 ]
 
-/**
- * Parse a single user utterance for a recognized local command. Matching is
- * case-insensitive and ignores leading/trailing words, so "okay stop please"
- * still parses as `stop`. Returns the first matching intent, or null.
- */
 export function parse(input: string): Intent | null {
   if (!input) return null
   const text = input.toLowerCase().trim()
