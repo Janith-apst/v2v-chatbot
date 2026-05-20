@@ -6,8 +6,6 @@ A frontend-only React + Vite PWA.
 
 There is **no backend**. All Gemini API calls are made directly from the browser, which means the API key is **bundled into the client JavaScript** and visible to anyone who loads the page. **we should not deploy this publicly.** Run it on `localhost` with a restricted, low-quota dev key only. A token-vending service must replace this approach before any public demo.
 
-If you use ngrok to generate a public URL, please update the `vite.config.js` file after running the `ngrok http 5173` command.
-
 
 ## Setup
 
