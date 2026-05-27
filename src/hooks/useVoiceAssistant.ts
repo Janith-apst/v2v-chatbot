@@ -14,7 +14,7 @@ import type {
 } from "@/types/assistant"
 
 import { useAccessibilityAnnouncements } from "./useAccessibilityAnnouncements"
-import { useGeolocation } from "./useGeolocation"
+import { useGeolocation, type GeoResult } from "./useGeolocation"
 import { useHaptics } from "./useHaptics"
 import { useSoundEffects } from "./useSoundEffects"
 import { useSettings, type SpeechSpeed } from "./useSettings"
@@ -606,14 +606,14 @@ export function useVoiceAssistant(opts: {
     // browser hasn't answered in 4s, we connect without coords; the watcher
     // (started above in start) will populate userLocationRef later and the
     // per-turn [Client context] injection will fill in the gap.
-    const preflight = await Promise.race<
-      typeof userLocationRef.current | "timeout"
-    >([
+    const preflight = await Promise.race<GeoResult | null | "timeout">([
       // If the watcher already produced a fix while mic was warming up, use it.
       userLocationRef.current
         ? Promise.resolve(userLocationRef.current)
         : geolocation.request(),
-      new Promise((resolve) => setTimeout(() => resolve("timeout"), 4000)),
+      new Promise<"timeout">((resolve) =>
+        setTimeout(() => resolve("timeout"), 4000)
+      ),
     ])
     const initialLocation =
       preflight && preflight !== "timeout" ? preflight : null
